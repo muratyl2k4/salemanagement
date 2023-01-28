@@ -26,23 +26,26 @@ class Anasayfa(tk.Frame):
     def __init__(self, master):
         tk.Frame.__init__(self, master)
         
-        main_canvas = tk.Canvas(self , width=SCREEN_WIDTH , height=SCREEN_HEIGTH , bg='black')
+        main_canvas = tk.Canvas(self , width=SCREEN_WIDTH , height=SCREEN_HEIGTH)
         main_canvas.pack()
 
         frame = tk.Frame(self , bg='white')
         frame.place(relheight=0.70 , relwidth=0.1 ,relx=0.005 , rely= 0.25)
-        
+
         ##BUTTON SETTINGS
         def binder(button):
+            button.pack(padx=1, pady=2 , side='top')
             button.bind('<Button-1>', lambda x=button: print(button))
             button.bind('<Enter>', lambda x=button : button.config(bg='#696969', fg='white'))
             button.bind('<Leave>', lambda x=button : button.config(bg='#C5C5C5', fg='black'))
-        But = tk.Label(frame, text='Hi',bg='#C5C5C5' ,  relief='groove')
-        But.pack(padx=10 , pady=10 , side='top')
-        binder(But)
-        But2 = tk.Label(frame, text='Hi',bg='#C5C5C5' ,  relief='groove')
-        But2.pack(padx=10 , pady=10 , side='top', )
-        binder(But2)
+
+        liste = ['musteri1' , 'musteri2']
+        for i in liste:    
+            binder(tk.Label(frame, text=i, width=16,bg='#C5C5C5' ,  relief='groove'))
+        
+                
+        
+        
 
         tk.Button(self, text="Return to 1",
                   command=lambda: master.switch_frame(PageOne)).pack()
