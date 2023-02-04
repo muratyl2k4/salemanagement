@@ -1,0 +1,106 @@
+import sqlite3
+import tkinter as tk
+
+# Connect to the database (creates the database file if it doesn't exist)
+conn = sqlite3.connect("customers.db")
+cursor = conn.cursor()
+
+# Create the table if it doesn't exist
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS customers (
+    name text,
+    debt real,
+    date text
+)
+""")
+
+# Main window
+root = tk.Tk()
+root.title("Customer Database")
+
+# Customer list frame
+frame = tk.Frame(root)
+frame.pack()
+
+# Customer list
+listbox = tk.Listbox(frame)
+listbox.pack(side="left", fill="both", expand=True)
+
+# Scrollbar
+scrollbar = tk.Scrollbar(frame)
+scrollbar.pack(side="right", fill="y")
+# Add customer function
+def add_customer():
+    customer_name = add_customer_entry.get()
+    cursor.execute("""
+    INSERT INTO customers (name, debt, date)
+    VALUES (?, 0, datetime('now'))
+    """, (customer_name,))
+
+# Add debt function
+def add_debt():
+    selected_customer = listbox.get(listbox.curselection()[0])
+    debt = float(add_debt_entry.get())
+    cursor.execute("""
+    UPDATE customers
+    SET debt = debt + ?
+    WHERE name=?
+    """, (debt, selected_customer))
+    conn.commit()
+# Set scrollbar to listbox
+listbox.config(yscrollcommand=scrollbar.set)
+scrollbar.config(command=listbox.yview)
+
+# Add customer entry and button
+add_customer_frame = tk.Frame(root)
+add_customer_frame.pack(pady=10)
+add_customer_entry = tk.Entry(add_customer_frame)
+add_customer_entry.pack(side="left")
+add_customer_button = tk.Button(add_customer_frame, text="Add Customer", command=add_customer)
+add_customer_button.pack(side="left")
+
+# Add debt entry and button
+add_debt_frame = tk.Frame(root)
+add_debt_frame.pack(pady=10)
+add_debt_entry = tk.Entry(add_debt_frame)
+add_debt_entry.pack(side="left")
+add_debt_button = tk.Button(add_debt_frame, text="Add Debt", command=add_debt)
+add_debt_button.pack(side="left")
+
+# Show customer details function
+def show_details(event):
+    # Get selected customer name
+    selected_customer = listbox.get(listbox.curselection()[0])
+
+    # Find customer in the database
+    cursor.execute("""
+    SELECT * FROM customers
+    WHERE name=?
+    """, (selected_customer,))
+    customer = cursor.fetchone()
+
+    # Show customer details in a new window
+    details = tk.Toplevel(root)
+    details.title("Customer Details")
+    tk.Label(details, text="Name: " + customer[0]).pack()
+    tk.Label(details, text="Debt: $" + str(customer[1])).pack()
+    tk.Label(details, text="Date: " + customer[2]).pack()
+
+
+# Load customers into the listbox
+cursor.execute("""
+SELECT name FROM customers
+""")
+customers = cursor.fetchall()
+for customer in customers:
+    listbox.insert("end", customer[0])
+
+# Bind listbox to the show details function
+listbox.bind("<<ListboxSelect>>", show_details)
+
+# Start main loop
+root.mainloop()
+
+# Close database connection
+conn.close()
+
