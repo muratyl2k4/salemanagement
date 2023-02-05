@@ -6,14 +6,14 @@ from ctypes import windll
 from datetime import datetime
 windll.shcore.SetProcessDpiAwareness(1)
 class Scrollbar():
-    def __init__(self, parent , width , height):
+    def __init__(self, parent , width , height , background_color):
         self.parent = parent
         # STEPS TO CREATE A SCROLLBAR
         # 1. Create A Main Frame in root
-        self.main_frame = tk.Frame(self.parent , width=width , height=height)
+        self.main_frame = tk.Frame(self.parent , width=width , height=height , bg=background_color)
         self.main_frame.pack(fill='both', expand=1)
         # 2. Create A Canvas in Main Frame
-        self.my_canvas = tk.Canvas(self.main_frame , width=width , height=height)
+        self.my_canvas = tk.Canvas(self.main_frame , width=width , height=height , bg=background_color)
         self.my_canvas.pack(side='left', fill='both', expand=1)
         # 3. Add A Scrollbar To The Canvas
         self.my_scrollbar = ttk.Scrollbar(self.main_frame, orient='vertical', command=self.my_canvas.yview)
@@ -21,7 +21,7 @@ class Scrollbar():
         # 4. Configure The Canvas
         self.my_canvas.configure(yscrollcommand=self.my_scrollbar.set)
         # 5. Create ANOTHER Frame INSIDE the Canvas. 
-        self.window = tk.Frame(self.my_canvas)
+        self.window = tk.Frame(self.my_canvas , background='white')
         # 6. Add that New frame To a Window In The Canvas
         self.my_canvas.create_window((0,0), window=self.window, anchor="nw", tags="windowTag")
         self.my_canvas.bind("<Configure>", self.onCanvasConfigure)
@@ -41,7 +41,7 @@ class App(tk.Tk):
         self.config(bg='black')
         photo = tk.PhotoImage(file = 'money.png')
         self.wm_iconphoto(False, photo)
-        self.title('Kumluca Sanayi Lokantasi Muhasebe')
+        self.title('M.Y.Tech Kumluca Sanayi Lokantasi Muhasebe')
 
         self.switch_frame(Anasayfa)
 
@@ -52,8 +52,6 @@ class App(tk.Tk):
             self._frame.destroy()
         self._frame = new_frame
         self._frame.pack(fill = 'both' , expand= 'yes')
-
-
 
 class Anasayfa(tk.Frame):
     def __init__(self, master):
@@ -74,9 +72,7 @@ class Anasayfa(tk.Frame):
 
         customer_payment_canvas = tk.Canvas(self , bg='white' , width=int(swidth/4*3) +10, height=int(sheight/3))
         customer_payment_canvas.pack(pady=10 , padx=10 , side='bottom' , anchor='s')
-        customer_payment_frame = tk.Frame(customer_payment_canvas , bg='white')
-        customer_payment_frame.place(relheight=1 , relwidth=1)
-
+        
         #scrollbar for customer Canvas 
         
         db = sqlite3.connect('database.db')     
@@ -105,27 +101,56 @@ class Anasayfa(tk.Frame):
         ##ADD PAYMENT    
         def add_payment(customerid ,message , date , payment):
             print(customerid , message , date , payment)
-            cursor.execute(f""" INSERT INTO payment (customer , 'message' , 'date',  payment ) VALUES ({customerid}, {message}, '{date}' ,{float(payment)}) """)
+            cursor.execute(f""" INSERT INTO payment (customer , 'message' , 'date',  payment ) VALUES ({customerid}, '{message}', '{date}' ,{float(payment)}) """)
             db.commit()
         #DRAW PAYMENTS TO SCREEN
         
         def draw_payment(customer_name):
             global Selectedcusid
-            ###GET SELECTED CUSTOMERS ID 
-            cursor.execute(f""" select customer_id from customers where customer_name = ? """ , (customer_name,))
-            result = cursor.fetchone()
-            Selectedcusid = result[0]
-            cursor.execute(f""" select * from payment where customer = ? """ , (result[0],))
-            resultp = cursor.fetchall()
-            for i in resultp:
-                print(i)
             
-        
+            try : 
+                ###GET SELECTED CUSTOMERS ID 
+                cursor.execute(f""" select customer_id from customers where customer_name = ? """ , (customer_name,))
+                result = cursor.fetchone()
+                Selectedcusid = result[0]
+                cursor.execute(f""" select * from payment where customer = ? """ , (result[0],))
+                resultp = cursor.fetchall()
+                ### DESTROY ALL THINGS IN CUSTOMER PAYMENT SCREEN 
+                for widget in customer_payment_canvas.winfo_children():
+                    widget.destroy()
+                ## ADDING SCROLLBAR
+                scrollbar = Scrollbar(customer_payment_canvas , width=int(customer_payment_canvas.cget('width')) , height=customer_payment_canvas.cget('height') , background_color='white')
+                ##CUSTOMER NAME
+                customerNameLabel = ttk.Label(scrollbar.window ,background='white' , text=customer_name , font='Calibri 15 bold')
+                customerNameLabel.grid(column=0 ,row=0 ,padx=5)
+                ## PAYMENT ADD
+                addPaymentButton = ttk.Button(scrollbar.window  , text='Odeme Ekle' , command=add_payment_w)
+                addPaymentButton.grid(column=2 , row=0)
+                ## PAYMENTS
+                for i in enumerate(resultp):
+                    msg=  i[1][1]
+                    date = i[1][2]
+                    payment = i[1][3]
+                    background_color = 'white' if payment >= 0 else 'black'
+                    foreground_color = 'black' if background_color == 'white' else 'white'
+                    onepaymentcanvas = tk.Canvas(scrollbar.window , bg=background_color , width=245 , height=100)
+                    onepaymentcanvas.grid(column=i[0] if i[0] <5 else i[0] % 5 , row=1 +int(i[0] / 5) , pady=10 , padx=2)
+                    onepaymentframe = tk.LabelFrame(onepaymentcanvas, bg=background_color)
+                    onepaymentframe.place(relheight=1 , relwidth=1)
+                    onepaymentframe.grid_propagate(False)
+                    
+                    ttk.Label(onepaymentframe , background=background_color , foreground=foreground_color , text='Mesaj : ' +msg , font='Verdana 10').pack(pady=5, padx=5 ,side='top' , anchor='w')
+                    ttk.Label(onepaymentframe , background=background_color , foreground=foreground_color ,text='Tarih : ' + date ,font='Verdana 10 bold').pack(pady=5, padx=5, side='top' , anchor='w')
+                    ttk.Label(onepaymentframe , background=background_color , foreground=foreground_color ,text='Odeme : ' +str(payment) , font='Verdana 10 bold').pack(pady=5 , padx=5, side='top' , anchor='w')
+            except Exception as e:
+                print(e)
+        draw_payment(None)
+            
         ## DRAW CUSTOMERS TO SCREEN 
         def draw_customer(listee):
             for widget in customer_canvas.winfo_children():
                 widget.destroy()
-            scrollbar = Scrollbar(customer_canvas , width = int(customer_canvas.cget('width')) -50 , height=int(customer_canvas.cget('height')))
+            scrollbar = Scrollbar(customer_canvas , width = int(customer_canvas.cget('width')) -50 , height=int(customer_canvas.cget('height')) , background_color='white')
             
             for x in listee:
                 for i in x:    
@@ -186,9 +211,9 @@ class Anasayfa(tk.Frame):
             s.configure('my.TButton', font=('Verdana', 36))
             paymentSaveButton = ttk.Button(new , text='Odemeyi Kaydet' , style='my.TButton',command= lambda : add_payment(
                 customerid= Selectedcusid,
-                message= msg_text_box.get("1.0","end-1c"),
+                message= str(msg_text_box.get("1.0","end-1c")),
                 date = paymentDateEntry.get_date().strftime("%d/%m/%Y"),
-                payment=int(paymentEntry.get())
+                payment=float(paymentEntry.get())
             ))
             paymentSaveButton.place(relx=0.1 , rely=0.4 , relwidth=0.8 , relheight=0.3)
 
@@ -196,11 +221,6 @@ class Anasayfa(tk.Frame):
         addCustomerButton = ttk.Button(navbar_frame, text="Müşteri Ekle" , command=add_customer_w)
         addCustomerButton.pack(padx=10 , pady=10)
 
-        addPaymentButton = ttk.Button(customer_payment_frame , text='Odeme Ekle' , command=add_payment_w)
-        addPaymentButton.pack(side='top' , pady=5)
-
-        
-        
 class PageOne(tk.Frame):
     def __init__(self, master):
         tk.Frame.__init__(self, master)
