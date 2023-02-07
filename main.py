@@ -6,6 +6,9 @@ from ctypes import windll
 from datetime import datetime
 
 windll.shcore.SetProcessDpiAwareness(1)
+
+
+
 class Scrollbar():
     def __init__(self, parent , width , height , background_color):
         self.parent = parent
@@ -83,8 +86,8 @@ class Anasayfa(tk.Frame):
         ##customer table
         cursor.execute('''CREATE TABLE IF NOT EXISTS customers(customer_id INTEGER PRIMARY KEY,customer_name TEXT)''')
         ##payment table 
-        cursor.execute("""CREATE TABLE IF NOT EXISTS payment(customer INTEGER , message TEXT , date BLOB , payment FLOAT  , FOREIGN KEY(customer) REFERENCES customers(customer_id))""")
-        cursor.execute("""CREATE TABLE IF NOT EXISTS debt(customer INTEGER , message TEXT , date BLOB , debt FLOAT  , FOREIGN KEY(customer) REFERENCES customers(customer_id))""")
+        cursor.execute("""CREATE TABLE IF NOT EXISTS payment(id INTEGER,customer INTEGER , message TEXT , date BLOB , payment FLOAT  , FOREIGN KEY(customer) REFERENCES customers(customer_id))""")
+        cursor.execute("""CREATE TABLE IF NOT EXISTS debt(id INTEGER,customer INTEGER , message TEXT , date BLOB , debt FLOAT  , FOREIGN KEY(customer) REFERENCES customers(customer_id))""")
 
 
         #cursor.execute(f""" INSERT INTO payment (customer , message , date,  payment ) VALUES (1, '2s','2014/12/11',50.0) """)
@@ -103,17 +106,85 @@ class Anasayfa(tk.Frame):
 
         ##ADD PAYMENT    
         def add_payment(customerid ,message , date , payment):
-            print(customerid , message , date , payment)
-            cursor.execute(f""" INSERT INTO payment (customer , 'message' , 'date',  payment ) VALUES ({customerid}, '{message}', '{date}' ,{float(payment)}) """)
+            cursor.execute(""" select id from payment """)
+            idResults = cursor.fetchall()
+            cursor.execute(f""" INSERT INTO payment (id , customer , 'message' , 'date',  payment ) VALUES ({len(idResults) + 1} ,{customerid}, '{message}', '{date}' ,{float(payment)}) """)
             db.commit()
-        ### ADD DEBT
+        ###ADD DEBT
         def add_debt(customerid ,message , date , debt):
-            print(customerid , message , date , debt)
-            cursor.execute(f""" INSERT INTO debt (customer , 'message' , 'date',  debt ) VALUES ({customerid}, '{message}', '{date}' ,{float(debt)}) """)
+            cursor.execute(""" select id from debt """)
+            idResults = cursor.fetchall()
+            cursor.execute(f""" INSERT INTO debt (id ,customer , 'message' , 'date',  debt ) VALUES ({len(idResults) + 1} , {customerid}, '{message}', '{date}' ,{float(debt)}) """)
             db.commit()
-        #DRAW PAYMENTS TO SCREEN
+        ##UPDATE PAYMENT 
+        def update_payment(msg , date , payment , id):
+            cursor.execute(f""" UPDATE payment 
+            SET message = '{msg}',
+            date = '{date}' , 
+            payment = {float(payment)} 
+            where id = {id} """)
+            db.commit()
+
         
-        def draw_payment(customer_name):
+        ##EDITINGS
+        def edit_payment(paymentid):
+            print(paymentid)
+            ##select payment 
+            newpf= tk.Toplevel(master)
+            newpf.geometry("750x250")
+            newpf.resizable(False,False)
+            newpf.title("Ödeme Düzenleme")
+
+            cursor.execute(""" select * from payment where id =  ? """ , (paymentid,))
+            pResult = cursor.fetchone()
+            print(pResult)
+            #message label and textbox
+            msg_text_box=tk.Text(newpf ,font='Verdana 10')
+            msg_text_box.insert(tk.END , pResult[2])
+            msg_text_box.place(relx= 0.10 , rely=0.2  ,relwidth=0.30 , relheight=0.10)
+            msgStringVariable = tk.StringVar()
+            msg_label = tk.Label(newpf ,textvariable=msgStringVariable ,font='Verdana 10 bold')
+            msgStringVariable.set('Odeme Mesaji')
+            msg_label.place(relx=0.1 , rely=0.05)
+            
+            paymentDateEntry=DateEntry(newpf,locale='tr' , selectmode='day' , date_pattern="y/mm/dd")
+            paymentDateEntry.set_date(datetime.strptime(pResult[3] , '%d/%m/%Y'))
+            paymentDateEntry.place(relx = 0.45 , rely=0.2)
+            paymentDateVariable = tk.StringVar()
+            paymentDateLabel = tk.Label(newpf , textvariable= paymentDateVariable , font='Verdana 10 bold')
+            paymentDateVariable.set('Odeme Tarihi')
+            paymentDateLabel.place(relx=0.45 , rely=0.05)
+
+            paymentVariable = tk.StringVar()
+            paymentEntry = tk.Entry(newpf , font='Verdana 10')
+            paymentEntry.insert(tk.END , pResult[4])
+            paymentEntry.place(relx=0.7 , rely=0.2 , relwidth=0.2 , relheight=0.1)
+            paymentEntryLabel = tk.Label(newpf , textvariable=paymentVariable,font='Verdana 10 bold')
+            paymentVariable.set('Odeme Miktari')
+            paymentEntryLabel.place(relx=0.7 , rely=0.05)
+
+            s = ttk.Style()
+            s.configure('my.TButton', font=('Verdana', 36))
+            paymentUpdateButton = ttk.Button(newpf , text='Odemeyi Guncelle' , style='my.TButton' , command= lambda : update_payment(
+                msg = str(msg_text_box.get("1.0","end-1c")),
+                date = paymentDateEntry.get_date().strftime("%d/%m/%Y"),
+                payment = float(paymentEntry.get()) ,
+                id = paymentid 
+            ))
+            paymentUpdateButton.pack(side='right' , pady=20 , padx=60)
+
+
+
+
+        def edit_debt(debtid):
+            cursor.execute(""" select * from debt where id =  ? """ , (debtid,))
+            dResult = cursor.fetchall()
+            print(dResult)
+
+        
+        #DRAW CASHFLOW TO SCREEN
+        editphoto = tk.PhotoImage(file='editpensquare.png')
+        def draw_cashflow(customer_name):
             global Selectedcusid
             
             try : 
@@ -137,7 +208,7 @@ class Anasayfa(tk.Frame):
                 payment_frame.grid(column=2 , row=0 , sticky='n')
                 ##Debt Frame
                 debt_frame = tk.Frame(scrollbar.window , width=int(customer_payment_canvas.cget('width')) / 5 * 2 , height=customer_payment_canvas.cget('height') , bg='red')
-                debt_frame.grid(column=0 , row=0)
+                debt_frame.grid(column=0 , row=0 , sticky='n')
                 ##CUSTOMER NAME
                 #customerNameLabel = ttk.Label(scrollbar.window ,background='white' , text=customer_name , font='Calibri 15 bold')
                 #customerNameLabel.grid(column=0 ,row=0 ,padx=5)
@@ -153,9 +224,11 @@ class Anasayfa(tk.Frame):
                 totalpayment = cursor.fetchone()
                 print(totalpayment)
                 for i in enumerate(resultp):
-                    msg=  i[1][1]
-                    date = i[1][2]
-                    payment = i[1][3]
+                    paymentid = i[1][0]
+                    print(paymentid)
+                    msg=  i[1][2]
+                    date = i[1][3]
+                    payment = i[1][4]
 
                     background_color = 'black'
                     foreground_color = 'white'
@@ -165,17 +238,20 @@ class Anasayfa(tk.Frame):
                     onepaymentframe.place(relheight=1 , relwidth=1)
                     onepaymentframe.grid_propagate(False)
                     
-                    ttk.Label(onepaymentframe , background=background_color , foreground=foreground_color , text='Mesaj : ' +msg , font='Verdana 10').pack(pady=5, padx=5 ,side='top' , anchor='w')
+                    ttk.Label(onepaymentframe , background=background_color , foreground=foreground_color , text='Mesaj : ' +msg , font='Verdana 10').pack(pady=1, padx=5 ,side='top' , anchor='w')
                     ttk.Label(onepaymentframe , background=background_color , foreground=foreground_color ,text='Tarih : ' + date ,font='Verdana 10 bold').pack(pady=5, padx=5, side='top' , anchor='w')
-                    ttk.Label(onepaymentframe , background=background_color , foreground=foreground_color ,text='Odeme : ' +str(payment) , font='Verdana 10 bold').pack(pady=5 , padx=5, side='top' , anchor='w')
+                    ttk.Label(onepaymentframe , background=background_color , foreground=foreground_color ,text='Odeme : ' +str(payment) , font='Verdana 10 bold').pack(pady=1 , padx=5, side='top' , anchor='w')
+                    tk.Button(onepaymentframe , image=editphoto , bg='white' , height=15 ,width=15 , command= lambda x = paymentid: edit_payment(x)).pack(side='right' , anchor='s')
+
                 ##DEBTS
                 cursor.execute("""SELECT SUM(debt) FROM debt where customer = ?""" , (Selectedcusid , ))
                 totaldebt = cursor.fetchone()
                 print(totaldebt)
                 for i in enumerate(resultd):
-                    msg=  i[1][1]
-                    date = i[1][2]
-                    debt = i[1][3]
+                    debtid = i[1][0]
+                    msg=  i[1][2]
+                    date = i[1][3]
+                    debt = i[1][4]
 
                     background_color = 'white' if debt >= 0 else 'black'
                     foreground_color = 'black' if background_color == 'white' else 'white'
@@ -185,9 +261,10 @@ class Anasayfa(tk.Frame):
                     onedebtframe.place(relheight=1 , relwidth=1)
                     onedebtframe.grid_propagate(False)
                     
-                    ttk.Label(onedebtframe , background=background_color , foreground=foreground_color , text='Mesaj : ' +msg , font='Verdana 10').pack(pady=5, padx=5 ,side='top' , anchor='w')
+                    ttk.Label(onedebtframe , background=background_color , foreground=foreground_color , text='Mesaj : ' +msg , font='Verdana 10').pack(pady=1, padx=5 ,side='top' , anchor='w')
                     ttk.Label(onedebtframe , background=background_color , foreground=foreground_color ,text='Tarih : ' + date ,font='Verdana 10 bold').pack(pady=5, padx=5, side='top' , anchor='w')
-                    ttk.Label(onedebtframe , background=background_color , foreground=foreground_color ,text='Odeme : ' +str(payment) , font='Verdana 10 bold').pack(pady=5 , padx=5, side='top' , anchor='w')
+                    ttk.Label(onedebtframe , background=background_color , foreground=foreground_color ,text='Odeme : ' +str(payment) , font='Verdana 10 bold').pack(pady=1 , padx=5, side='top' , anchor='w')
+                    tk.Button(onedebtframe , image=editphoto , bg='white' , height=15 ,width=15 , command= lambda x= debtid: edit_debt(x)).pack(side='right' , anchor='s')
                 
                     
                 
@@ -196,7 +273,7 @@ class Anasayfa(tk.Frame):
                 tk.Label(scrollbar.window , text='toplam alacak' +str(totaldebt[0] - totalpayment[0]) , bg='white' , font='Verdana 15 bold').grid(column=5 , row=0 , sticky='n')
             except Exception as e:
                 print(e)
-        draw_payment(None)
+        draw_cashflow(None)
             
         ## DRAW CUSTOMERS TO SCREEN 
         def draw_customer(listee):
@@ -206,7 +283,7 @@ class Anasayfa(tk.Frame):
             
             for x in listee:
                 for i in x:    
-                    ttk.Button(scrollbar.window, text=i , width=100 , command=lambda x=i : draw_payment(x)).pack()
+                    ttk.Button(scrollbar.window, text=i , width=100 , command=lambda x=i : draw_cashflow(x)).pack()
 
         ##get customers from database
         cursor.execute("select customer_name from customers")
