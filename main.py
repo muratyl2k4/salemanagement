@@ -1,6 +1,7 @@
 import tkinter as tk 
 import sqlite3
 from tkinter import ttk
+from tkinter import messagebox
 from tkcalendar import DateEntry
 from ctypes import windll
 from datetime import datetime
@@ -90,8 +91,7 @@ class Anasayfa(tk.Frame):
         cursor.execute("""CREATE TABLE IF NOT EXISTS debt(id INTEGER,customer INTEGER , message TEXT , date BLOB , debt FLOAT  , FOREIGN KEY(customer) REFERENCES customers(customer_id))""")
 
 
-        #cursor.execute(f""" INSERT INTO payment (customer , message , date,  payment ) VALUES (1, '2s','2014/12/11',50.0) """)
-        db.commit()
+        
         ## ADD CUSTOMERS ON DATABASE
         def add_customer(textbox):
             value=textbox.get("1.0","end-1c")
@@ -124,9 +124,39 @@ class Anasayfa(tk.Frame):
             payment = {float(payment)} 
             where id = {id} """)
             db.commit()
-
-        
+        ##UPDATE DEBT 
+        def update_debt(msg , date , debt , id):
+            cursor.execute(f""" UPDATE debt 
+            SET message = '{msg}',
+            date = '{date}' , 
+            debt = {float(debt)} 
+            where id = {id} """)
+            db.commit() 
+        ##DELETE DEBT 
+        def delete_debt(debtid):
+            msg_box = messagebox.askquestion('Borcu Sil', 'Borcu silmek istediginizden emin misiniz?',
+                                    icon='warning')
+            if msg_box == 'yes':
+                cursor.execute(f"""
+                DELETE FROM debt where id = {debtid} 
+                """)
+                db.commit()        
+            else:
+                messagebox.showinfo('Islem Basarisiz', 'Odeme Silinmedi')
+        ##DELETE PAYMENT 
+        def delete_payment(paymentid):
+            
+            msg_box = messagebox.askquestion('Odemeyi Sil', 'Odemeyi silmek istediginizden emin misiniz?',
+                                    icon='warning')
+            if msg_box == 'yes':
+                cursor.execute(f"""
+                DELETE FROM payment where id = {paymentid} 
+                """)
+                db.commit()        
+            else:
+                messagebox.showinfo('Islem Basarisiz', 'Odeme Silinmedi')
         ##EDITINGS
+        delPhoto = tk.PhotoImage(file='delete.png')
         def edit_payment(paymentid):
             print(paymentid)
             ##select payment 
@@ -171,15 +201,58 @@ class Anasayfa(tk.Frame):
                 payment = float(paymentEntry.get()) ,
                 id = paymentid 
             ))
-            paymentUpdateButton.pack(side='right' , pady=20 , padx=60)
-
-
-
+            paymentUpdateButton.pack(side='right' , pady=20 , padx=100)
+            paymentDeleteButton = tk.Button(newpf , bg='white' , image=delPhoto , command= lambda : delete_payment(paymentid))
+            paymentDeleteButton.place(relx=0.1 , rely=0.7 )
 
         def edit_debt(debtid):
+            ##select payment 
+            newpf= tk.Toplevel(master)
+            newpf.geometry("750x250")
+            newpf.resizable(False,False)
+            newpf.title("Borc Düzenleme")
+
             cursor.execute(""" select * from debt where id =  ? """ , (debtid,))
-            dResult = cursor.fetchall()
+            dResult = cursor.fetchone()
             print(dResult)
+            #message label and textbox
+            msg_text_box=tk.Text(newpf ,font='Verdana 10')
+            msg_text_box.insert(tk.END , dResult[2])
+            msg_text_box.place(relx= 0.10 , rely=0.2  ,relwidth=0.30 , relheight=0.10)
+            msgStringVariable = tk.StringVar()
+            msg_label = tk.Label(newpf ,textvariable=msgStringVariable ,font='Verdana 10 bold')
+            msgStringVariable.set('Odeme Mesaji')
+            msg_label.place(relx=0.1 , rely=0.05)
+            
+            debtDateEntry=DateEntry(newpf,locale='tr' , selectmode='day' , date_pattern="y/mm/dd")
+            debtDateEntry.set_date(datetime.strptime(dResult[3] , '%d/%m/%Y'))
+            debtDateEntry.place(relx = 0.45 , rely=0.2)
+            debtDateVariable = tk.StringVar()
+            debtDateLabel = tk.Label(newpf , textvariable= debtDateVariable , font='Verdana 10 bold')
+            debtDateVariable.set('Odeme Tarihi')
+            debtDateLabel.place(relx=0.45 , rely=0.05)
+
+            debtVariable = tk.StringVar()
+            debtEntry = tk.Entry(newpf , font='Verdana 10')
+            debtEntry.insert(tk.END , dResult[4])
+            debtEntry.place(relx=0.7 , rely=0.2 , relwidth=0.2 , relheight=0.1)
+            debtEntryLabel = tk.Label(newpf , textvariable=debtVariable,font='Verdana 10 bold')
+            debtVariable.set('Odeme Miktari')
+            debtEntryLabel.place(relx=0.7 , rely=0.05)
+
+            s = ttk.Style()
+            s.configure('my.TButton', font=('Verdana', 36))
+            debtUpdateButton = ttk.Button(newpf , text='Borcu Guncelle' , style='my.TButton' , command= lambda : update_debt(
+                msg = str(msg_text_box.get("1.0","end-1c")),
+                date = debtDateEntry.get_date().strftime("%d/%m/%Y"),
+                debt = float(debtEntry.get()) ,
+                id = debtid 
+            ))
+            debtUpdateButton.pack(side='right' , pady=10 , padx=180)
+            debtDeleteButton = tk.Button(newpf , bg='white' , image=delPhoto , command= lambda : delete_debt(debtid))
+            debtDeleteButton.place(relx=0.1 , rely=0.7)
+
+
 
         
         #DRAW CASHFLOW TO SCREEN
@@ -265,9 +338,7 @@ class Anasayfa(tk.Frame):
                     ttk.Label(onedebtframe , background=background_color , foreground=foreground_color ,text='Tarih : ' + date ,font='Verdana 10 bold').pack(pady=5, padx=5, side='top' , anchor='w')
                     ttk.Label(onedebtframe , background=background_color , foreground=foreground_color ,text='Odeme : ' +str(payment) , font='Verdana 10 bold').pack(pady=1 , padx=5, side='top' , anchor='w')
                     tk.Button(onedebtframe , image=editphoto , bg='white' , height=15 ,width=15 , command= lambda x= debtid: edit_debt(x)).pack(side='right' , anchor='s')
-                
-                    
-                
+ 
                 tk.Label(payment_frame , text='odenen' +str(totalpayment[0]) , bg='white' , font='Verdana 15 bold').grid(column=1 , row=0)
                 tk.Label(debt_frame , text='borc' +str(totaldebt[0]) , bg='white' , font='Verdana 15 bold').grid(column=1 , row=0)
                 tk.Label(scrollbar.window , text='toplam alacak' +str(totaldebt[0] - totalpayment[0]) , bg='white' , font='Verdana 15 bold').grid(column=5 , row=0 , sticky='n')
