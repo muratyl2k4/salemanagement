@@ -143,7 +143,7 @@ class Anasayfa(tk.Frame):
                 db.commit()        
             else:
                 messagebox.showinfo('Islem Basarisiz', 'Odeme Silinmedi')
-        ##DELETE PAYMENT 
+        ##DELETE  
         def delete_payment(paymentid):
             
             msg_box = messagebox.askquestion('Odemeyi Sil', 'Odemeyi silmek istediginizden emin misiniz?',
@@ -277,10 +277,10 @@ class Anasayfa(tk.Frame):
                 ## ADDING SCROLLBAR
                 scrollbar = Scrollbar(customer_payment_canvas , width=int(customer_payment_canvas.cget('width')) , height=customer_payment_canvas.cget('height') , background_color='white')
                 ##Payment Frame
-                payment_frame = tk.Frame(scrollbar.window , width=int(customer_payment_canvas.cget('width')) / 5 * 2 , height=customer_payment_canvas.cget('height') , bg='orange')
+                payment_frame = tk.Frame(scrollbar.window , width=int(customer_payment_canvas.cget('width')) / 5 * 2 , height=customer_payment_canvas.cget('height') , bg='red')
                 payment_frame.grid(column=2 , row=0 , sticky='n')
                 ##Debt Frame
-                debt_frame = tk.Frame(scrollbar.window , width=int(customer_payment_canvas.cget('width')) / 5 * 2 , height=customer_payment_canvas.cget('height') , bg='red')
+                debt_frame = tk.Frame(scrollbar.window , width=int(customer_payment_canvas.cget('width')) / 5 * 2 , height=customer_payment_canvas.cget('height') , bg='blue')
                 debt_frame.grid(column=0 , row=0 , sticky='n')
                 ##CUSTOMER NAME
                 #customerNameLabel = ttk.Label(scrollbar.window ,background='white' , text=customer_name , font='Calibri 15 bold')
@@ -351,10 +351,42 @@ class Anasayfa(tk.Frame):
             for widget in customer_canvas.winfo_children():
                 widget.destroy()
             scrollbar = Scrollbar(customer_canvas , width = int(customer_canvas.cget('width')) -50 , height=int(customer_canvas.cget('height')) , background_color='white')
-            
+            customerSearchEntry = tk.Entry(scrollbar.window , font='Verdana 25' , bg='gray')
+            customerSearchEntry.pack(side='top')
+            customerListBox = tk.Listbox(scrollbar.window)
+            customerListBox.pack( pady=40)
+                     
+            customerList = []
             for x in listee:
-                for i in x:    
-                    ttk.Button(scrollbar.window, text=i , width=100 , command=lambda x=i : draw_cashflow(x)).pack()
+                for i in x:
+                    customerList.append(i)    
+                    
+            def update(data):
+                
+                for i in customerListBox.winfo_children():
+                    i.destroy()
+                for item in data :
+                   ttk.Button(customerListBox, text=item , width=100 , command=lambda x=item : draw_cashflow(x)).pack()
+                   
+                    
+                        
+            def fillout(event):
+                customerSearchEntry.delete(0 , tk.END)
+                customerSearchEntry.insert(0, customerListBox.get(0 , tk.ANCHOR))
+
+            def check(e):
+                typed = customerSearchEntry.get()
+        
+                if typed == '':
+                    data = customerList
+                else : 
+                    data = []
+                    for item in customerList:
+                        if typed.lower() in item.lower():
+                            data.append(item)
+                update(data)    
+            customerSearchEntry.bind("<KeyRelease>" , check)
+            customerListBox.bind("<<ListBoxSelect>>" , fillout)
 
         ##get customers from database
         cursor.execute("select customer_name from customers")
@@ -446,7 +478,6 @@ class Anasayfa(tk.Frame):
             debtEntryLabel.place(relx=0.7 , rely=0.05)
 
             print(type(debtDateEntry.get_date().strftime("%Y/%m/%d")))
-            
 
             s = ttk.Style()
             s.configure('my.TButton', font=('Verdana', 36))
